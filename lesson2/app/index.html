@@ -1,0 +1,222 @@
+<html>
+<body>
+
+
+<div id="account_info" style="border:thin">
+	Your network : <span id="network">error</span><br>
+	Your account address : <select id="account_address"></select><br>
+	Your wallert balance : <span id="account_balance">error</span><br>
+</div><br><br>
+
+
+<div id="house_publish_block">
+	Position:	<input id="publish_position" type="text" name="firstname" value="beijing.sanlitun">
+	Price:		<input id="publish_price" type="text" name="price" value="2000">
+	<button id="publish_button" type="button">Click Me to publish</button>
+</div><br><br>
+
+
+<div>
+	My Published Houses:<br>
+	<table id="my_published_houses" border="1" width="1000">
+		<tr>
+			<th>Position</th>
+			<th>Price</th>
+			<th>Date</th>
+		</tr>
+	</table>
+</div><br><br>
+
+<div>
+	My Rented Houses:<br>
+	<table id="my_rented_houses" border="1" width="1000">
+		<tr>
+			<th>Position</th>
+			<th>Price</th>
+			<th>Date</th>
+		</tr>
+	</table>
+</div><br><br>
+
+<div>
+	All Houses:<br>
+	<table id="all_houses" border="1" width="1000">
+		<tr>
+			<th>Position</th>
+			<th>Price</th>
+			<th>Date</th>
+		</tr>
+	</table>
+</div><br><br>
+
+
+
+<script type="text/javascript" src="./javascript/web3/web3.js"></script>
+<script type="text/javascript">
+//
+//global variables
+//
+localProvider = "http://localhost:8545";
+
+abi = JSON.parse('[{"constant":false,"inputs":[{"name":"position","type":"string"}],"name":"Publish","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"constant":true,"inputs":[{"name":"","type":"uint256"}],"name":"houses","outputs":[{"name":"owner","type":"address"},{"name":"position","type":"string"},{"name":"price","type":"uint256"},{"name":"ts","type":"uint256"},{"name":"s","type":"uint8"},{"name":"lessee","type":"address"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"HouseCount","outputs":[{"name":"c","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"}]');
+contractAddress = '0x4090f145589fc131b2e0db7129618f8d6fd82e9b';
+
+web3 = new Web3(new Web3.providers.HttpProvider(localProvider));
+
+rentingContract = web3.eth.contract(abi);
+
+contractInstance = rentingContract.at(contractAddress);
+
+function InitAccountInfo() {
+	var balance = web3.eth.getBalance(web3.eth.defaultAccount);
+	document.getElementById("account_balance").innerHTML = balance.toString(10);
+}
+
+function InitHouseTable(table) {
+	table.innerHTML = "";
+	var tr = document.createElement('tr');
+
+	var th_address = document.createElement('th');
+	th_address.innerHTML = "Position";
+	tr.appendChild(th_address);
+
+	var th_price = document.createElement('th');
+	th_price.innerHTML = "Price";
+	tr.appendChild(th_price);
+
+	var th_state = document.createElement('th');
+	th_state.innerHTML = "State";
+	tr.appendChild(th_state);
+
+	var th_owner = document.createElement("th");
+	th_owner.innerHTML = "Owner";
+	tr.appendChild(th_owner);
+
+	var th_lessee = document.createElement('th');
+	th_lessee.innerHTML = "lessee";
+	tr.appendChild(th_lessee);
+
+	var th_date = document.createElement('th');
+	th_date.innerHTML = "Date";
+	tr.appendChild(th_date);
+
+	table.appendChild(tr);
+}
+
+function InitPublishedHouses() {
+	InitHouseTable(document.getElementById("my_published_houses"));
+	InitHouseTable(document.getElementById("my_rented_houses"));
+	InitHouseTable(document.getElementById("all_houses"));
+
+	contractInstance.HouseCount({from:web3.eth.defaultAccount}, function(error, result){
+		console.log(error);
+		console.log(result.toNumber());
+		
+		for(var i = 0; i < result.toNumber(); i++){
+			contractInstance.houses(i, {from:web3.eth.defaultAccount}, function(error, result){
+				console.log(error);
+				console.log(result[0]);
+				console.log(web3.eth.defaultAccount);
+
+				var tr = document.createElement('tr');
+
+				var th_address = document.createElement('th');
+				th_address.innerHTML = result[1];
+				tr.appendChild(th_address);
+
+				var th_price = document.createElement('th');
+				th_price.innerHTML = result[2].toString();
+				tr.appendChild(th_price);
+
+				var th_state = document.createElement('th');
+				th_state.innerHTML = "Avaliable";
+				tr.appendChild(th_state);
+
+				var th_owner = document.createElement('th');
+				th_owner.innerHTML = result[0];
+				tr.appendChild(th_owner);
+
+				var th_lessee = document.createElement('th');
+				th_lessee.innerHTML = "0x000000000000000000000";
+				tr.appendChild(th_lessee);
+
+				var th_date = document.createElement('th');
+				var newDate = new Date();  
+				newDate.setTime(result[3].toNumber() * 1000);
+				th_date.innerHTML = newDate.toLocaleTimeString();//result[3].toString();
+				tr.appendChild(th_date);
+
+				
+
+				if(result[0] == web3.eth.defaultAccount){
+					//my published house, owner == defaultAccount
+					var table = document.getElementById("my_published_houses");
+					table.appendChild(tr);
+				}else if(result[4] == web3.eth.defaultAccount){
+					//my rented house, lessee == defaultAccount
+					var table = document.getElementById("my_rented_houses");
+					table.appendChild(tr);
+				}else{
+					//other houses
+					var table = document.getElementById("all_houses");
+					table.appendChild(tr);
+				}	
+			});
+		}
+	});
+}
+
+function OnAddressChange(){
+	console.log(this.value);
+	if(this.value != web3.eth.defaultAccount){
+		web3.eth.defaultAccount = this.value;
+		InitAccountInfo();
+		InitPublishedHouses();
+	}
+}
+
+function Publish() {
+	var house_position = document.getElementById("publish_position").value;
+	var house_price = document.getElementById("publish_price").value;
+	
+	console.log(house_position);
+	console.log(house_price);
+	contractInstance.Publish(house_position, {from:web3.eth.defaultAccount, value:parseInt(house_price), gas:470000}, function(receipt){
+		console.log(receipt);
+	});
+}
+
+
+
+window.onload = function() {
+	if (web3.eth.accounts.length == 0) {
+		alert("Get accounts failed, check your provider!");
+		return;
+	};
+
+	var account = web3.eth.accounts[0];
+	if(web3.eth.defaultAccount == null){
+		web3.eth.defaultAccount = account;
+	}
+
+	document.getElementById("network").innerHTML = web3.version.network;
+
+	//document.getElementById("account_address").innerHTML = account;
+	for(var i = 0; i < web3.eth.accounts.length; i++){
+		var option = document.createElement("option");
+		option.value = web3.eth.accounts[i];
+		option.innerHTML = web3.eth.accounts[i];
+		document.getElementById("account_address").appendChild(option);
+	}
+
+	InitAccountInfo();
+	InitPublishedHouses();
+	document.getElementById("publish_button").onclick = Publish;
+	document.getElementById("account_address").onchange = OnAddressChange;
+};
+
+</script>
+
+
+</body>
+</html>

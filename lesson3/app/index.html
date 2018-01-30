@@ -1,0 +1,533 @@
+<html>
+<body>
+
+
+<div id="account_info" style="border:thin">
+	Your network : <span id="network">error</span><br>
+	Your account address : <select id="account_address"></select><br>
+	Your wallert balance : <span id="account_balance">error</span><br>
+</div><br><br>
+
+
+<div id="house_publish_block">
+	Position:	<input id="publish_position" type="text" name="firstname" value="beijing.sanlitun">
+	Price:		<input id="publish_price" type="text" name="price" value="2000">
+	Term:		<input id="publish_term" type="text" name="term" value="30">
+	<button id="publish_button" type="button">Click Me to publish</button>
+</div><br><br>
+
+
+<div>
+	My Published Houses:<br>
+	<table id="my_published_houses" border="1" width="1000"></table>
+</div><br><br>
+
+<div>
+	My Rented Houses:<br>
+	<table id="my_rented_houses" border="1" width="1000"></table>
+</div><br><br>
+
+<div>
+	All Houses:<br>
+	<table id="all_houses" border="1" width="1000"></table>
+</div><br><br>
+
+
+
+<script type="text/javascript" src="./javascript/web3/web3.js"></script>
+<script type="text/javascript">
+//
+//global variables
+//
+localProvider = "http://localhost:8545";
+
+abi = JSON.parse('[{"constant":false,"inputs":[{"name":"id","type":"uint256"}],"name":"Rent","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"constant":true,"inputs":[{"name":"","type":"uint256"}],"name":"houses","outputs":[{"name":"id","type":"uint256"},{"name":"owner","type":"address"},{"name":"lessee","type":"address"},{"name":"position","type":"string"},{"name":"term","type":"uint256"},{"name":"price","type":"uint256"},{"name":"s","type":"uint8"},{"name":"publish_time","type":"uint256"},{"name":"rent_out_time","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"id","type":"uint256"}],"name":"Close","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"HouseCount","outputs":[{"name":"c","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"position","type":"string"},{"name":"term","type":"uint256"}],"name":"Publish","outputs":[],"payable":true,"stateMutability":"payable","type":"function"}]');
+contractAddress = '0x3082240f276b1ad103ae5804cb6a94a7e869c7f1';
+
+web3 = new Web3(new Web3.providers.HttpProvider(localProvider));
+
+rentingContract = web3.eth.contract(abi);
+
+contractInstance = rentingContract.at(contractAddress);
+
+
+function getStateMessage(code) {
+	var States = ['Avaliable', 'Rented', 'Closed'];
+	return States[code];
+}
+
+function InitAccountInfo() {
+	var balance = web3.eth.getBalance(web3.eth.defaultAccount);
+	document.getElementById("account_balance").innerHTML = balance.toString(10);
+}
+
+function InitMyPublishedHouseTable(table){
+	table.innerHTML = "";
+	var tr = document.createElement('tr');
+
+	var th_id = document.createElement('th');
+	th_id.innerHTML = "ID";
+	tr.appendChild(th_id);
+
+	var th_owner = document.createElement('th');
+	th_owner.innerHTML = "Owner";
+	tr.appendChild(th_owner);
+
+	var th_lessee = document.createElement('th');
+	th_lessee.innerHTML = "Lessee";
+	tr.appendChild(th_lessee);
+
+	var th_address = document.createElement('th');
+	th_address.innerHTML = "Position";
+	tr.appendChild(th_address);
+
+	var th_term = document.createElement('th');
+	th_term.innerHTML = "Term";
+	tr.appendChild(th_term);
+
+	var th_price = document.createElement('th');
+	th_price.innerHTML = "Price";
+	tr.appendChild(th_price);
+
+	var th_state = document.createElement('th');
+	th_state.innerHTML = "State";
+	tr.appendChild(th_state);
+
+	var th_publish_date = document.createElement('th');
+	th_publish_date.innerHTML = "PublishDate";
+	tr.appendChild(th_publish_date);
+
+	var th_rent_out_date = document.createElement('th');
+	th_rent_out_date.innerHTML = "RentOutDate";
+	tr.appendChild(th_rent_out_date);
+
+	var th_finish_date = document.createElement('th');
+	th_finish_date.innerHTML = "FinishDate";
+	tr.appendChild(th_finish_date);
+
+	var th_operation = document.createElement('th');
+	th_operation.innerHTML = 'Operation';
+	tr.appendChild(th_operation);
+
+	table.appendChild(tr);
+}
+
+function AppendMyPublishedHouse(table, result){
+	var tr = document.createElement('tr');
+
+	var th_id = document.createElement('th');
+	th_id.innerHTML = result[0].toString();
+	tr.appendChild(th_id);
+
+	var th_owner = document.createElement('th');
+	th_owner.innerHTML = result[1];
+	tr.appendChild(th_owner);
+
+	var th_lessee = document.createElement('th');
+	th_lessee.innerHTML = result[2];
+	tr.appendChild(th_lessee);
+
+	var th_position = document.createElement('th');
+	th_position.innerHTML = result[3];
+	tr.appendChild(th_position);
+
+	var th_term = document.createElement("th");
+	th_term.innerHTML = (result[4].toNumber() / (24.0 * 60 * 60)).toFixed(5);
+	tr.appendChild(th_term);
+
+	var th_price = document.createElement('th');
+	th_price.innerHTML = result[5].toString();
+	tr.appendChild(th_price);
+
+	var th_state = document.createElement('th');
+	th_state.innerHTML = getStateMessage(result[6]);
+	tr.appendChild(th_state);
+
+	var th_publish_date = document.createElement('th');
+	var newDate = new Date();  
+	newDate.setTime(result[7].toNumber() * 1000);	
+	th_publish_date.innerHTML = newDate.toLocaleString();//result[3].toString();
+	tr.appendChild(th_publish_date);
+
+	if (result[6] != 0) {
+		var th_rent_out_date = document.createElement('th');
+		var newDate = new Date();  
+		newDate.setTime(result[8].toNumber() * 1000);
+		th_rent_out_date.innerHTML = newDate.toLocaleString();
+		tr.appendChild(th_rent_out_date);
+
+		var th_finish_date = document.createElement('th');
+		newDate.setTime((result[8].toNumber() + result[4].toNumber()) * 1000);
+		th_finish_date.innerHTML = newDate.toLocaleString();
+		tr.appendChild(th_finish_date);
+
+	}else {
+		var th_rent_out_date = document.createElement('th');
+		th_rent_out_date.innerHTML = "--";
+		tr.appendChild(th_rent_out_date);
+
+		var th_finish_date = document.createElement('th');
+		th_finish_date.innerHTML = "--";
+		tr.appendChild(th_finish_date);
+	}
+
+	if(result[6] == 1){
+		var th_operation = document.createElement('th');
+		var button_close = document.createElement('button');
+		button_close.innerHTML = 'Close';
+		button_close.id = result[0];
+		button_close.onclick = function(){
+		contractInstance.Close(this.id - 1, {from:web3.eth.defaultAccount, gas:470000}, function(receipt){
+				alert(receipt);
+				console.log(receipt);
+			});
+		};
+		th_operation.appendChild(button_close);
+		tr.appendChild(th_operation);
+	}
+
+	table.appendChild(tr);
+}
+
+function InitMyRentedHouseTable(table){
+	table.innerHTML = "";
+	var tr = document.createElement('tr');
+
+	var th_id = document.createElement('th');
+	th_id.innerHTML = "ID";
+	tr.appendChild(th_id);
+
+	var th_owner = document.createElement("th");
+	th_owner.innerHTML = "Owner";
+	tr.appendChild(th_owner);
+
+	var th_lessee = document.createElement('th');
+	th_lessee.innerHTML = 'Lessee';
+	tr.appendChild(th_lessee);
+
+	var th_position = document.createElement('th');
+	th_position.innerHTML = "Position";
+	tr.appendChild(th_position);
+
+	var th_term = document.createElement('th');
+	th_term.innerHTML = "Term";
+	tr.appendChild(th_term);
+
+	var th_price = document.createElement('th');
+	th_price.innerHTML = "Price";
+	tr.appendChild(th_price);
+
+	var th_state = document.createElement('th');
+	th_state.innerHTML = "State";
+	tr.appendChild(th_state);
+
+	var th_publish_date = document.createElement('th');
+	th_publish_date.innerHTML = "PublishDate";
+	tr.appendChild(th_publish_date);
+
+	var th_rent_out_date = document.createElement('th');
+	th_rent_out_date.innerHTML = "RentOutDate";
+	tr.appendChild(th_rent_out_date);
+
+	var th_finish_date = document.createElement('th');
+	th_finish_date.innerHTML = "FinishDate";
+	tr.appendChild(th_finish_date);
+
+	var th_operation = document.createElement('th');
+	th_operation.innerHTML = "Operation";
+	tr.appendChild(th_operation);
+
+
+	table.appendChild(tr);
+}
+
+function AppendMyRentedHouse(table, result){
+	var tr = document.createElement('tr');
+
+	var th_id = document.createElement('th');
+	th_id.innerHTML = result[0];
+	tr.appendChild(th_id);
+
+	var th_owner = document.createElement("th");
+	th_owner.innerHTML = result[1];
+	tr.appendChild(th_owner);
+
+	var th_lessee = document.createElement('th');
+	th_lessee.innerHTML = result[2];
+	tr.appendChild(th_lessee);
+
+	var th_position = document.createElement('th');
+	th_position.innerHTML = result[3];
+	tr.appendChild(th_position);
+
+	var th_term = document.createElement('th');
+	th_term.innerHTML = (result[4].toFixed(2) / (24 * 60 * 60)).toString();
+	tr.appendChild(th_term);
+
+	var th_price = document.createElement('th');
+	th_price.innerHTML = result[5].toString();
+	tr.appendChild(th_price);
+
+	var th_state = document.createElement('th');
+	th_state.innerHTML = getStateMessage(result[6]);
+	tr.appendChild(th_state);
+
+	var th_publish_date = document.createElement('th');
+	var newDate = new Date();  
+	newDate.setTime(result[7].toNumber() * 1000);	
+	th_publish_date.innerHTML = newDate.toLocaleString();
+	tr.appendChild(th_publish_date);
+
+	var th_rent_out_date = document.createElement('th');
+	newDate.setTime(result[8].toNumber() * 1000);
+	th_rent_out_date.innerHTML = newDate.toLocaleString();
+	tr.appendChild(th_rent_out_date);
+
+	var th_finish_date = document.createElement('th');
+	newDate.setTime((result[8].toNumber() + result[4].toNumber()) * 1000);
+	th_finish_date.innerHTML = newDate.toLocaleString();
+	tr.appendChild(th_finish_date);
+
+	if(result[6] == 1){
+		var th_operation = document.createElement('th');
+		var button_close = document.createElement('button');
+		button_close.innerHTML = 'Close';
+		button_close.id = result[0];
+		button_close.onclick = function(){
+		contractInstance.Close(this.id - 1, {from:web3.eth.defaultAccount, gas:470000}, function(receipt){
+				alert(receipt);
+				console.log(receipt);
+			});
+		};
+		th_operation.appendChild(button_close);
+		tr.appendChild(th_operation);
+	}
+
+	table.appendChild(tr);	
+}
+
+function InitOtherHouseTable(table){
+	table.innerHTML = "";
+	var tr = document.createElement('tr');
+
+	var th_id = document.createElement('th');
+	th_id.innerHTML = "ID";
+	tr.appendChild(th_id);
+
+	var th_owner = document.createElement("th");
+	th_owner.innerHTML = "Owner";
+	tr.appendChild(th_owner);
+
+	var th_lessee = document.createElement('th');
+	th_lessee.innerHTML = "Lessee";
+	tr.appendChild(th_lessee);
+
+	var th_address = document.createElement('th');
+	th_address.innerHTML = "Position";
+	tr.appendChild(th_address);
+
+	var th_term = document.createElement('th');
+	th_term.innerHTML = "Term";
+	tr.appendChild(th_term);
+
+	var th_price = document.createElement('th');
+	th_price.innerHTML = "Price";
+	tr.appendChild(th_price);
+
+	var th_state = document.createElement('th');
+	th_state.innerHTML = "State";
+	tr.appendChild(th_state);
+
+	var th_publish_date = document.createElement('th');
+	th_publish_date.innerHTML = "PublishDate";
+	tr.appendChild(th_publish_date);
+
+	var th_rent_out_date = document.createElement('th');
+	th_rent_out_date.innerHTML = "RentOutDate";
+	tr.appendChild(th_rent_out_date);
+
+	var th_finish_date = document.createElement('th');
+	th_finish_date.innerHTML = "FinishDate";
+	tr.appendChild(th_finish_date);
+
+	var th_operation = document.createElement('th');
+	th_operation.innerHTML = "Operation";
+	tr.appendChild(th_operation);
+
+	table.appendChild(tr);
+}
+
+function AppendOtherHouse(table, result){
+	var tr = document.createElement('tr');
+
+	var th_id = document.createElement('th');
+	th_id.innerHTML = result[0].toString();
+	tr.appendChild(th_id);
+
+	var th_owner = document.createElement("th");
+	th_owner.innerHTML = result[1];
+	tr.appendChild(th_owner);
+
+	var th_lessee = document.createElement('th');
+	th_lessee.innerHTML = result[2];
+	tr.appendChild(th_lessee);
+
+	var th_position = document.createElement('th');
+	th_position.innerHTML = result[3];
+	tr.appendChild(th_position);
+
+	var th_term = document.createElement('th');
+	th_term.innerHTML = (result[4].toNumber() / (24 * 60 * 60)).toString();
+	tr.appendChild(th_term);
+
+	var th_price = document.createElement('th');
+	th_price.innerHTML = result[5].toString();
+	tr.appendChild(th_price);
+
+	var th_state = document.createElement('th');
+	th_state.innerHTML = getStateMessage(result[6]);
+	tr.appendChild(th_state);
+
+	var th_publish_date = document.createElement('th');
+	var newDate = new Date();  
+	newDate.setTime(result[7].toNumber() * 1000);	
+	th_publish_date.innerHTML = newDate.toLocaleString();
+	tr.appendChild(th_publish_date);
+
+	if(result[6] != 0){
+		var th_rent_out_date = document.createElement('th');
+		newDate.setTime(result[8].toNumber() * 1000);
+		th_rent_out_date.innerHTML = newDate.toLocaleString();
+		tr.appendChild(th_rent_out_date);
+
+		var th_finish_date = document.createElement('th');
+		newDate.setTime((result[8].toNumber() + result[4].toNumber()) * 1000);
+		th_finish_date.innerHTML = newDate.toLocaleString();
+		tr.appendChild(th_finish_date);
+
+		var th_operation = document.createElement('th');
+		th_operation.innerHTML == '--';
+		tr.appendChild(th_operation);
+
+	}else{
+		var th_rent_out_date = document.createElement('th');
+		th_rent_out_date.innerHTML = '--';
+		tr.appendChild(th_rent_out_date);
+
+		var th_finish_date = document.createElement('th');
+		th_finish_date.innerHTML = '--';
+		tr.appendChild(th_finish_date);
+
+		var th_operation = document.createElement('th');
+		var rent_button = document.createElement('button');
+		rent_button.innerHTML = "Rent";
+		rent_button.id = result[0];
+		rent_button.price = result[5];
+		rent_button.onclick = function(){
+			alert(this.id);
+
+			contractInstance.Rent(this.id - 1, {from:web3.eth.defaultAccount, value:parseInt(this.price), gas:470000}, function(receipt){
+				alert(receipt);
+				console.log(receipt);
+			});
+		};
+		th_operation.appendChild(rent_button);
+		tr.appendChild(th_operation);
+	}
+
+	table.appendChild(tr);
+}
+
+function InitPublishedHouses() {
+	InitMyPublishedHouseTable(document.getElementById("my_published_houses"));
+	InitMyRentedHouseTable(document.getElementById("my_rented_houses"));
+	InitOtherHouseTable(document.getElementById("all_houses"));
+
+	contractInstance.HouseCount({from:web3.eth.defaultAccount}, function(error, result){
+		console.log(error);
+		console.log(result.toNumber());
+		
+		for(var i = 0; i < result.toNumber(); i++){
+			contractInstance.houses(i, {from:web3.eth.defaultAccount}, function(error, result){
+				console.log(error);
+				console.log(result);
+				console.log(web3.eth.defaultAccount);
+
+				if(result[1] == web3.eth.defaultAccount){
+					//my published house, owner == defaultAccount
+					var table = document.getElementById("my_published_houses");
+					AppendMyPublishedHouse(table, result);
+				}else if(result[2] == web3.eth.defaultAccount){
+					//my rented house, lessee == defaultAccount
+					var table = document.getElementById("my_rented_houses");
+					AppendMyRentedHouse(table, result);
+				}else{
+					//other houses
+					var table = document.getElementById("all_houses");
+					AppendOtherHouse(table, result);
+				}	
+			});
+		}
+	});
+}
+
+function OnAddressChange(){
+	console.log(this.value);
+	if(this.value != web3.eth.defaultAccount){
+		web3.eth.defaultAccount = this.value;
+		InitAccountInfo();
+		InitPublishedHouses();
+	}
+}
+
+function Publish() {
+	var house_position = document.getElementById("publish_position").value;
+	var house_price = document.getElementById("publish_price").value;
+	var house_term = document.getElementById("publish_term").value;
+	
+	console.log(house_position);
+	console.log(house_price);
+	console.log(house_term);
+	contractInstance.Publish(
+		house_position, 
+		parseInt(house_term),
+		{from:web3.eth.defaultAccount, value:parseInt(house_price), gas:470000}, function(receipt){
+			alert(receipt);
+			console.log(receipt);
+	});
+}
+
+
+
+window.onload = function() {
+	if (web3.eth.accounts.length == 0) {
+		alert("Get accounts failed, check your provider!");
+		return;
+	};
+
+	var account = web3.eth.accounts[0];
+	if(web3.eth.defaultAccount == null){
+		web3.eth.defaultAccount = account;
+	}
+
+	document.getElementById("network").innerHTML = web3.version.network;
+
+	//document.getElementById("account_address").innerHTML = account;
+	for(var i = 0; i < web3.eth.accounts.length; i++){
+		var option = document.createElement("option");
+		option.value = web3.eth.accounts[i];
+		option.innerHTML = web3.eth.accounts[i];
+		document.getElementById("account_address").appendChild(option);
+	}
+
+	InitAccountInfo();
+	InitPublishedHouses();
+	document.getElementById("publish_button").onclick = Publish;
+	document.getElementById("account_address").onchange = OnAddressChange;
+};
+
+</script>
+
+
+</body>
+</html>
